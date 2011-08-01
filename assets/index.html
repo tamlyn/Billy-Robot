@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Billy Robot</title>
+		<meta charset="utf-8">
+		<style>
+		body {
+			font: medium sans-serif;
+		}
+		</style>
+	</head>
+	<body>
+		<h1>Billy Robot</h1>
+		
+		<p id="control">
+			<button value="forward">Forward</button>
+			<button value="back">Backward</button>
+			<button value="left">Left</button>
+			<button value="right">Right</button>
+		</p>
+		
+		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+		<script type="text/javascript">
+			var command = 'stop';
+			
+			$('#control button').bind('mousedown', function(){
+				command = $(this).val();
+				startLoop();
+			}).bind('mouseup', function(){
+				command = 'stop';
+			});
+			
+			var interval, stopCount, requestCounter = 0;
+			
+			function startLoop() {
+				clearInterval(interval);
+				interval = setInterval(function(){
+					requestCounter++;
+					var url = '/control/'+command+'?'+$.param({counter:requestCounter});
+					$.post(url);
+					
+					
+					if (command == 'stop') stopCount++;
+					else stopCount = 0;
+					if (stopCount > 5) clearInterval(interval);
+				}, 100);
+			}
+		</script>
+	</body>
+</html>
