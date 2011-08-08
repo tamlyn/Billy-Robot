@@ -4,10 +4,10 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     >
-    <ScrollView android:layout_width="fill_parent" android:layout_height="fill_parent" android:id="@+id/logScroll">
-        <LinearLayout android:id="@+id/linearLayout1" android:layout_width="fill_parent" android:layout_height="fill_parent">
-            <TextView android:id="@+id/status" android:text="@string/loading" 
-            	android:layout_height="wrap_content" android:layout_width="fill_parent"></TextView>
-        </LinearLayout>
-    </ScrollView>
+    <LinearLayout android:id="@+id/linearLayout2" android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="vertical">
+	    <ScrollView android:layout_width="fill_parent" android:layout_height="fill_parent" android:id="@+id/logScroll">
+	        <TextView android:text="@string/loading" android:id="@+id/status" android:layout_width="fill_parent" android:layout_height="wrap_content"></TextView>
+	    </ScrollView>
+    	<SurfaceView android:id="@+id/cameraSurface" android:layout_width="fill_parent" android:layout_height="fill_parent"></SurfaceView>
+	</LinearLayout>
 </LinearLayout>
