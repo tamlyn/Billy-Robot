@@ -1,16 +1,11 @@
 package org.tamlyn.billy;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.PrintWriter;
 import java.net.*;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -30,14 +25,12 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
-import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.view.OrientationEventListener;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.TextView;
@@ -91,7 +84,7 @@ public class BillyRobotActivity extends AbstractIOIOActivity {
 			public void surfaceCreated(SurfaceHolder holder) {
 				try {
 					camera.setPreviewDisplay(holder);
-					//camera.startPreview();
+					camera.startPreview();
 				} catch (IOException e) {
 					Log.e("Exception", e.toString());
 				}
@@ -335,6 +328,7 @@ public class BillyRobotActivity extends AbstractIOIOActivity {
 			outStream.println("HTTP/1.1 "+code);
 			outStream.println("Content-Type: "+type);
 			outStream.println("Content-Length: "+contentLength);
+			outStream.println("Access-Control-Allow-Origin: *");
 			outStream.println();
 		}
 		

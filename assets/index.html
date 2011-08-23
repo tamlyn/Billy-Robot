@@ -3,91 +3,138 @@
 	<head>
 		<title>Billy Robot</title>
 		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width"> 
 		<style>
 		body {
-			font: medium sans-serif;
+			font: 14px sans-serif;
+			margin: 0;
 		}
 		
-		#control {
+		h1 {
+			margin: 0;
+			padding: 3px 6px;
+			color: #fff;
+			background-color: #000;
+			font-size: 20px;
+		}
+		
+		#view {
+			height: 176px;
+			margin: 10px;
+		}
+		
+		#view img {
+			-moz-transform: rotate(90deg);
+			-moz-transform-origin: 50% 60%;
+			-webkit-transform: rotate(90deg);
+			-webkit-transform-origin: 50% 60%;
+		}
+		
+		#controls {
+			width: 300px;
+			margin: 10px;
+		}
+		
+		#nav {
+			padding: 0;
+			margin: 0;
+			list-style: none;
+		}
+		
+		#nav li {
+			float: left;
+			margin: 0 0 -1px 5px;
+			border: 1px solid #bbb;
+		}
+		
+		#nav a {
+			padding: 4px 6px;
+			margin: 0;
+			display: block;
+			color: #000;
+			text-decoration: none;
+		}
+		
+		#nav li.active {
+			background-color: #eee;
+			border-bottom-color: #eee;
+		}
+		
+		.panel {
+			clear: left;
+			border: 1px solid #bbb;
+			background-color: #eee;
+			padding: 10px 5px;
+			display: none;
+		}
+		
+		.panel.buttons {
+			display: block;
 			text-align: center;
-			width: 180px;
+		}
+		
+		#tiltDisplay {
+			width: 200px;
+			height: 200px;
+			
+			margin: 0 auto;
+			padding: 5px;
+			border: 1px solid #000;
+			background-color: #fff;
+			position: relative;
+		}
+		
+		#tiltDisplay span {
+			display: block;
+			position: absolute;
+			width: 10px;
+			height: 10px;
+			margin: -5px 0 0 -5px;
+			border-radius: 5px;
+			background-color: #f00;
 		}
 		</style>
 	</head>
 	<body>
 		<h1>Billy Robot</h1>
 		
-		<!--<img src="/sensor/camera" id="view">-->
+		<div id="view">
+			<img src="/sensor/camera">
+		</div>
 		
-		<p id="control">
-			<button value="forward">Forward</button>
-			<br>
-			<button value="left">Left</button>
-			<button value="right">Right</button>
-			<br>
-			<button value="back">Backward</button>
-		</p>
+		<div id="controls">
+			<ul id="nav">
+				<li class="buttons active"><a href="">Buttons</a></li>
+				<li class="joystick"><a href="">Joystick</a></li>
+				<li class="tilt"><a href="">Tilt</a></li>
+			</ul>
+			
+			<div class="panel buttons">
+				<button value="forward">Forward (W)</button>
+				<br>
+				<button value="left">Left (A)</button>
+				<button value="right">Right (D)</button>
+				<br>
+				<button value="back">Backward (S)</button>
+				
+				<p>Click the buttons or use the W, A, S &amp; D keys.</p>
+			</div>
+			
+			<div class="panel joystick">
+				<p id="x"></p>
+				<p id="y"></p>
+				<p>Click on the dot then move your mouse in any direction.</p>
+			</div>
+			
+			<div class="panel tilt">
+				<div id="tiltDisplay"><span></span></div>
+				<div id="out"></div>
+				<p>Hold phone horizontal then tilt in any direction.</p>
+			</div>
+			
+		</div>
 		
 		<script type="text/javascript" src="jquery.min.js"></script>
-		<script type="text/javascript">
-			var command = 'stop';
-			
-			$('#control button').bind('mousedown', function(){
-				command = $(this).val();
-				startLoop();
-			}).bind('mouseup', function(){
-				command = 'stop';
-			});
-			
-			var interval, stopCount, requestCounter = 0, leftSpeed, rightSpeed;
-			
-			function startLoop() {
-				clearInterval(interval);
-				interval = setInterval(function(){
-					switch (command) {
-					case 'left' :
-						leftSpeed = -0.3;
-						rightSpeed = 0.5;
-						break;
-					case 'right' :
-						leftSpeed = 0.5;
-						rightSpeed = -0.3;
-						break;
-					case 'forward' :
-						leftSpeed = 0.6;
-						rightSpeed = 0.6;
-						break;
-					case 'back' :
-						leftSpeed = -0.5;
-						rightSpeed = -0.5;
-						break;
-					default:
-						leftSpeed = 0;
-						rightSpeed = 0;
-					}
-					
-					requestCounter++;
-					var url = '/control?'+$.param({
-						counter:requestCounter,
-						left:leftSpeed,
-						right:rightSpeed
-					});
-					$.post(url);
-					
-					
-					if (command == 'stop') stopCount++;
-					else stopCount = 0;
-					if (stopCount > 5) clearInterval(interval);
-				}, 80);
-			}
-			
-			/*var originalSrc = $('#view').attr('src');
-			var cameraInterval = setInterval(function(){
-				$('#view').attr('src', originalSrc + '?' + new Date().getTime());
-			}, 700);
-			$('#view').click(function(){
-				clearInterval(cameraInterval);
-			});*/
-		</script>
+		<script type="text/javascript" src="controller.js"></script>
 	</body>
 </html>
