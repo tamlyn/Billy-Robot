@@ -2,4 +2,5 @@
 <resources>
     <string name="loading">Loading...</string>
     <string name="app_name">BillyRobot</string>
+    <string name="autobutton">Auto</string>
 </resources>

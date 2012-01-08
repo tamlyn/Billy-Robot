@@ -4,103 +4,12 @@
 		<title>Billy Robot</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width"> 
-		<style>
-		body {
-			font: 14px sans-serif;
-			margin: 0;
-		}
-		
-		h1 {
-			margin: 0;
-			padding: 3px 6px;
-			color: #fff;
-			background-color: #000;
-			font-size: 20px;
-		}
-		
-		#view {
-			height: 176px;
-			margin: 10px;
-		}
-		
-		#view img {
-			-moz-transform: rotate(90deg);
-			-moz-transform-origin: 50% 60%;
-			-webkit-transform: rotate(90deg);
-			-webkit-transform-origin: 50% 60%;
-		}
-		
-		#controls {
-			width: 300px;
-			margin: 10px;
-		}
-		
-		#nav {
-			padding: 0;
-			margin: 0;
-			list-style: none;
-		}
-		
-		#nav li {
-			float: left;
-			margin: 0 0 -1px 5px;
-			border: 1px solid #bbb;
-		}
-		
-		#nav a {
-			padding: 4px 6px;
-			margin: 0;
-			display: block;
-			color: #000;
-			text-decoration: none;
-		}
-		
-		#nav li.active {
-			background-color: #eee;
-			border-bottom-color: #eee;
-		}
-		
-		.panel {
-			clear: left;
-			border: 1px solid #bbb;
-			background-color: #eee;
-			padding: 10px 5px;
-			display: none;
-		}
-		
-		.panel.buttons {
-			display: block;
-			text-align: center;
-		}
-		
-		#tiltDisplay {
-			width: 200px;
-			height: 200px;
-			
-			margin: 0 auto;
-			padding: 5px;
-			border: 1px solid #000;
-			background-color: #fff;
-			position: relative;
-		}
-		
-		#tiltDisplay span {
-			display: block;
-			position: absolute;
-			width: 10px;
-			height: 10px;
-			margin: -5px 0 0 -5px;
-			border-radius: 5px;
-			background-color: #f00;
-		}
-		</style>
+		<link rel="stylesheet" type="text/css" href="style.css">
 	</head>
 	<body>
 		<h1>Billy Robot</h1>
 		
-		<div id="view">
-			<img src="/sensor/camera">
-		</div>
+		<img src="/sensor/camera" id="view">
 		
 		<div id="controls">
 			<ul id="nav">
@@ -121,14 +30,12 @@
 			</div>
 			
 			<div class="panel joystick">
-				<p id="x"></p>
-				<p id="y"></p>
+				<div id="stickInput" class="xyPlane"><span></span></div>
 				<p>Click on the dot then move your mouse in any direction.</p>
 			</div>
 			
 			<div class="panel tilt">
-				<div id="tiltDisplay"><span></span></div>
-				<div id="out"></div>
+				<div id="tiltDisplay" class="xyPlane"><span></span></div>
 				<p>Hold phone horizontal then tilt in any direction.</p>
 			</div>
 			

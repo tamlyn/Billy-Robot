@@ -1,0 +1,82 @@
+body {
+	font: 14px sans-serif;
+	margin: 0;
+}
+
+h1 {
+	margin: 0;
+	padding: 3px 6px;
+	color: #fff;
+	background-color: #000;
+	font-size: 20px;
+}
+
+#view {
+	margin: 10px;
+}
+
+#controls {
+	width: 300px;
+	margin: 10px;
+}
+
+#nav {
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+#nav li {
+	float: left;
+	margin: 0 0 -1px 5px;
+	border: 1px solid #bbb;
+}
+
+#nav a {
+	padding: 4px 6px;
+	margin: 0;
+	display: block;
+	color: #000;
+	text-decoration: none;
+}
+
+#nav li.active {
+	background-color: #eee;
+	border-bottom-color: #eee;
+}
+
+.panel {
+	clear: left;
+	border: 1px solid #bbb;
+	background-color: #eee;
+	padding: 10px 5px;
+	display: none;
+}
+
+.panel.buttons {
+	display: block;
+	text-align: center;
+}
+
+.xyPlane {
+	width: 200px;
+	height: 200px;
+	
+	margin: 0 auto;
+	padding: 5px;
+	border: 1px solid #000;
+	background-color: #fff;
+	position: relative;
+}
+
+.xyPlane span {
+	display: block;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	margin: -5px 0 0 -5px;
+	border-radius: 5px;
+	background-color: #f00;
+}

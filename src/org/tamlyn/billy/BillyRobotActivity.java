@@ -1,31 +1,18 @@
 package org.tamlyn.billy;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
+import ioio.lib.api.DigitalOutput;
+import ioio.lib.api.exception.ConnectionLostException;
+import ioio.lib.util.AbstractIOIOActivity;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.*;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import android.content.res.AssetManager;
-import android.graphics.Bitmap;
-import android.graphics.Bitmap.CompressFormat;
-import android.graphics.BitmapFactory;
-import android.graphics.ImageFormat;
-import android.graphics.Matrix;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.hardware.Camera;
-import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
 import android.os.Handler;
@@ -33,54 +20,70 @@ import android.os.Message;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.TabHost;
 import android.widget.TextView;
-
-import ioio.lib.api.*;
-import ioio.lib.api.exception.ConnectionLostException;
-import ioio.lib.util.AbstractIOIOActivity;
+import android.widget.ToggleButton;
 
 public class BillyRobotActivity extends AbstractIOIOActivity {
 	
 	private TextView status;
-	private int statusMaxLines = 10;
-	private Handler handler = new Handler() {
-		public void handleMessage(Message msg) {
-			status.append((String)msg.obj + "\n");
-			String text = status.getText().toString();
-			String[] lines = text.split("\n");
-			if (lines.length > statusMaxLines) {
-				String[] newLines = new String[statusMaxLines];
-				System.arraycopy(lines, lines.length - statusMaxLines, newLines, 0, statusMaxLines);
-				status.setText("");
-				for (int i = 0; i < statusMaxLines; i++) {
-					status.append(newLines[i]+"\n");
-				}
-			}
-		}
-	};
-	private ServerSocket serverSocket;
-	final int port = 8080;
-	public static String ip;
+	private SimpleWebServer server;
 	public float leftSpeed = 0;
 	public float rightSpeed = 0;
-	private Thread serverThread;
-	private int requestCounter;
 	private Camera camera;
 	private Size previewSize;
 	private byte[] imageData;
+	private DrawView drawView;
+	private SurfaceView cameraSurface;
+	private boolean drawingView = false;
+	private ToggleButton autoButton;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
-
-		ip = getLocalIpAddress();
+		
+		//setup tabs
+		TabHost tabs = (TabHost) this.findViewById(R.id.tabhost);
+		tabs.setup();
+		tabs.addTab(tabs.newTabSpec("Camera").setIndicator("Camera").setContent(R.id.tab2));
+		tabs.addTab(tabs.newTabSpec("Log").setIndicator("Log").setContent(R.id.tab1));
+		
+		//setup augmented overlay
+		FrameLayout fl = (FrameLayout) this.findViewById(R.id.tab2);
+		drawView = new DrawView(this);
+		fl.addView(drawView);
+		autoButton = (ToggleButton) this.findViewById(R.id.autobutton);
+		
+		//setup web server
+		Handler handler = new Handler() {
+			public void handleMessage(Message msg) {
+				switch (msg.what) {
+				case 1 :
+					logMessage((String)msg.obj);
+					break;
+				case 2 :
+					leftSpeed = 1.0f*msg.arg1/1000;
+					rightSpeed = 1.0f*msg.arg2/1000;
+					break;
+				}
+			}
+		};
+		server = new SimpleWebServer(getResources().getAssets(), handler);
+		server.start();
+		
+		//setup log screen
 		status = (TextView) findViewById(R.id.status);
 		status.setText("");
 		
-		SurfaceView cameraSurface = (SurfaceView) findViewById(R.id.cameraSurface);
-		SurfaceHolder holder = cameraSurface.getHolder();
-		SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
+		//setup camera surface		
+		cameraSurface = (SurfaceView) findViewById(R.id.cameraSurface);
+		SurfaceHolder cameraHolder = cameraSurface.getHolder();
+		cameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+		cameraHolder.addCallback(new SurfaceHolder.Callback() {
 			public void surfaceCreated(SurfaceHolder holder) {
 				try {
 					camera.setPreviewDisplay(holder);
@@ -92,53 +95,21 @@ public class BillyRobotActivity extends AbstractIOIOActivity {
 			
 			public void surfaceDestroyed(SurfaceHolder holder) {}
 			public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
-		};
+		});
 		
 		
-		holder.addCallback(surfaceCallback);
-		holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-		
-		/*try{
-		      super.onCreate(savedInstanceState);
-		      cv = new CustomCameraView(this.getApplicationContext());
-		      FrameLayout rl = new FrameLayout(this.getApplicationContext());
-		      setContentView(rl);
-		      rl.addView(cv);
-		} catch(Exception e){}*/
 	}
-	
-	private String getLocalIpAddress() {
-		try {
-			for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
-				NetworkInterface intf = en.nextElement();
-				for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
-					InetAddress inetAddress = enumIpAddr.nextElement();
-					if (!inetAddress.isLoopbackAddress()) { 
-						return inetAddress.getHostAddress().toString(); 
-					}
-				}
-			}
-		} catch (SocketException ex) {
-			Log.e("BillyRobotActivity", ex.toString());
-		}
-		return null;
-	}
-	
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
-		serverThread = new Thread(new WebServer());
-		serverThread.start();
+		
+		//server.start();
 		
 		//open camera
 		camera = Camera.open();
 		camera.setDisplayOrientation(90);
 		Camera.Parameters params = camera.getParameters();
-
-		//List<Integer> formats = params.getSupportedPictureFormats();
-		//Log.d("Format", formats.toString());
-		//params.setPreviewFormat(ImageFormat.NV21);
 		
 		//find smallest preview size
 		List<Size> sizes = params.getSupportedPreviewSizes();
@@ -155,185 +126,209 @@ public class BillyRobotActivity extends AbstractIOIOActivity {
 		}
 		params.setPreviewSize(previewSize.width, previewSize.height);
 		
-		params.setRotation(90);
+//		ViewGroup.LayoutParams layoutParams = cameraSurface.getLayoutParams();
+//		layoutParams.height = previewSize.width;
+//		layoutParams.width = previewSize.height;
+//		cameraSurface.setLayoutParams(layoutParams);
 		
+		drawView.setPreviewSize(previewSize.width, previewSize.height);
+		imageData = new byte[previewSize.width*previewSize.height];
+		camera.setPreviewCallback(new Camera.PreviewCallback() {
+			
+			@Override
+			public void onPreviewFrame(byte[] data, Camera camera) {
+				if (!drawingView) {
+					imageData = data;
+					drawView.invalidate();
+					drawingView = true;
+				}
+			}
+		});
+		
+		params.setRotation(90);
 		camera.setParameters(params);
 	
 	}
-
+	
 	protected void onPause() {
 		super.onPause();
-		try {
-			serverSocket.close();
-		} catch (IOException e) {}
 		camera.release();
 	}
 
-	public class WebServer implements Runnable {
+	private void logMessage(String message) {
+		status.setText(message + "\n" + status.getText());
+	}
+	
+	public class DrawView extends View {
+		/*
+		 * Vanishing point analysis
+		 * See http://scholar.lib.vt.edu/theses/available/etd-283421290973280/unrestricted/etd.pdf
+		 * pages 42-49 for the mathematics  
+		 */
+		public static final double TAN_THETA = 7.5/21, 
+			IMAGE_D = 15, //distance from centre of vehicle to bottom of image plane 
+			IMAGE_A = 5; //distance from bottom centre of image plane to bottom edge
+		private int imageWidth, imageHeight, horizonOffset = 16;
+		int[] localData, edgePixels, houghSpace;
+		public static final int PIXEL_THRESHOLD = 128, HOUGH_THRESHOLD = 64, 
+			HOUGH_C_SIZE = 64, HOUGH_M_SIZE = 32,
+			HOUGH_C_SCALE = 4, HOUGH_C_OFFSET = -16;
+		private long lastTime;
 		
-		public void run() {
-			try {
-				serverSocket = new ServerSocket(port);
-				handler.sendMessage(handler.obtainMessage(0, "Listening on "+ip+":"+port));
-				
-				while (true) {
-					Socket client = serverSocket.accept(); //blocks
-					@SuppressWarnings("unused")
-					Thread connection = new ConnectionThread(client);
-				}
-			} catch(Exception e) {
-				Log.e("BillyRobot","Exception", e);
-			}
+		
+		public DrawView(Context context) {
+			super(context);
+			
+			lastTime = System.nanoTime();
+		}
+		
+		public void setPreviewSize(int width, int height) {
+			ViewGroup.LayoutParams layoutParams = this.getLayoutParams();
+			layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+			layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
+			this.setLayoutParams(layoutParams);
+			
+			imageWidth = width;
+			imageHeight = height;
+			
+			localData = new int[width*height];
+			edgePixels = new int[width*height];
+		}
+		
+		/*
+		 * Called by system when view is invalidated
+		 */
+		@Override
+	    public void onDraw(Canvas canvas) {
+	        super.onDraw(canvas);
+	        if (imageData == null) return;
+	        
+	        for (int i=imageWidth*imageHeight-1; i>=0; i--) {
+	        	localData[i] = imageData[i] & 0xff;
+	        }
+	        houghSpace = new int[HOUGH_C_SIZE*HOUGH_M_SIZE];
+
+	        for(int i=1; i<imageHeight-1; i++) {
+	        	int maxWidth = imageWidth*(i+1)-1;
+	        	for(int j=imageWidth*i+1;j<maxWidth;j++) {
+	                //calculate pixel differences
+	        		int value = localData[j-imageWidth]*2 - localData[j+imageWidth]*2
+                    	+ localData[j-1-imageWidth] + localData[j+1-imageWidth]
+                        - localData[j-1+imageWidth] - localData[j+1+imageWidth];
+              
+	        		if(value<0) value = -value; //positivise
+	                if(value>255) value=255; //avoid clipping
+	                
+	                //hough stuff
+	                if(value>PIXEL_THRESHOLD) {
+	                    int y = i, x = j - imageWidth*i-1;
+	                    for (int mf=0;mf<HOUGH_M_SIZE;mf++) {
+	                    	double m = 2.0*mf/HOUGH_M_SIZE-1;
+	                    	int cf = (int) (y - m*x)/HOUGH_C_SCALE - HOUGH_C_OFFSET;
+	                    	if (cf >= 0 && cf < HOUGH_C_SIZE) {
+	                    		houghSpace[HOUGH_C_SIZE*mf+cf]++;
+	                    	}
+	                    }
+	                }
+	                
+	                //convert back to RGBA
+	                edgePixels[j] = value | (value << 8) | (value << 16) | (255 << 24);
+	            }
+	        }
+	        
+	        int maxVal = houghSpace[0], maxPos = 0;
+	        for(int k=1;k<houghSpace.length;k++) {
+	            if(houghSpace[k] > maxVal) {
+	                maxPos = k;
+	                maxVal = houghSpace[k];
+	            }
+	        }
+	        
+	        //render edges
+//	        Bitmap bitmap = Bitmap.createBitmap(edgePixels, width, height, Bitmap.Config.ARGB_8888);
+//	        Matrix matrix = new Matrix();
+//	        matrix.setRotate(90, height/2, height/2);
+//	        canvas.drawBitmap(bitmap, matrix, null);
+//	        canvas.rotate(90, height/2, height/2);
+//	        canvas.drawBitmap(edgePixels, 0, width, 0, 0, width, height, false, null);
+
+	        //render hough space
+//	        float scale = maxVal>0 ? 255/maxVal : 1;
+//	        for(int k=0;k<houghSpace.length;k++) {
+//	            int value = (int) (houghSpace[k] * scale);
+//	            houghSpace[k] = value | value<<8 | value<<16 | 0xff000000;
+//	        }
+//	        Bitmap houghMap = Bitmap.createBitmap(houghSpace, HOUGH_C_SIZE, HOUGH_M_SIZE, Bitmap.Config.ARGB_8888);
+//	        Matrix hmatrix = new Matrix();
+//	        hmatrix.setTranslate(0, width+10);
+//	        canvas.drawBitmap(houghMap, hmatrix, null);
+	        
+	        
+			
+	        Paint paint = new Paint();
+	        paint.setColor(Color.RED);
+	        
+	        //draw horizon line
+	        float scaledOffset = horizonOffset * this.getHeight() / imageWidth;
+	        canvas.drawLine(0, scaledOffset, this.getWidth(), scaledOffset, paint);
+	        
+	        paint.setStrokeWidth(2);
+	        paint.setColor(Color.GREEN);
+	        
+	        int interceptTop = imageHeight - HOUGH_C_SCALE * (maxPos % HOUGH_C_SIZE + HOUGH_C_OFFSET);
+	        float linem = (float) (2*Math.floor(maxPos/HOUGH_C_SIZE)/HOUGH_M_SIZE - 1),
+	        	interceptHorizon = interceptTop - linem*horizonOffset,
+	        	interceptBottom = interceptTop - linem*imageWidth;
+	        
+	        int midPoint = imageHeight/2;
+	        double heading = Math.atan((interceptHorizon*TAN_THETA)/midPoint-TAN_THETA);
+	        
+	        double aReal = (interceptBottom-midPoint) * IMAGE_A/midPoint;
+	        double drift = aReal*Math.cos(heading) - IMAGE_D*Math.sin(heading);
+	        
+	        float xScale = 1.0f*this.getWidth()/imageHeight, yScale = 1.0f*this.getHeight()/imageWidth;
+        
+			float Kh = 1f, Kd = 0.01f, headingSign = heading < 0 ? -1 : 1,
+				error = (float) (heading*heading*Kh*headingSign + drift*Kd);
+			
+			if (error > 0.1) error = 0.1f;
+			if (error < -0.1) error = -0.1f;
+			
+	        leftSpeed = 0;
+	        rightSpeed = 0;
+
+	        if (maxVal > HOUGH_THRESHOLD) {
+	        
+		        canvas.drawLine(interceptHorizon*xScale, horizonOffset*yScale, 
+		        		interceptBottom*xScale, imageWidth*yScale, paint);
+		        
+		        if (autoButton.isChecked()) {
+			        leftSpeed = 0.25f;
+			        rightSpeed = 0.25f;
+
+			        leftSpeed += error;
+			        rightSpeed -= error;
+		        }
+		         
+	        }
+	        
+	        paint.setColor(Color.RED);
+	        paint.setTextSize(30);
+	        
+	        long thisTime = System.nanoTime();
+	        double fps = Math.floor(1e12/(thisTime - lastTime))/1000;
+	        lastTime = thisTime;
+	        String text = "" + fps + " fps";
+	        canvas.drawText(text, 5, 30, paint);
+	        canvas.drawText("Heading "+(Math.floor(heading*1000)/1000), 5, 60, paint);
+	        canvas.drawText("Drift "+(Math.floor(drift*1000)/1000), 5, 90, paint);
+	        canvas.drawText("Error "+(Math.floor(error*1000)/1000), 5, 120, paint);
+	        
+	        drawingView = false;
+	        
 		}
 	}
 	
-	public class ConnectionThread extends Thread {
-		private Socket client;
-		private PrintStream outStream;
-		private Pattern commandPattern = Pattern.compile("(GET|POST) (/.*?)(\\?(.*))? HTTP/1");		
-		
-		ConnectionThread(Socket client) {
-			this.client = client;
-			this.start();
-		}
-		
-		public void run()  {
-			try {
-				outStream = new PrintStream(client.getOutputStream(), true);
-
-				BufferedReader in = new BufferedReader(
-						new InputStreamReader(client.getInputStream()));
-				
-				String line = in.readLine(); //read first line of request
-				handler.sendMessage(handler.obtainMessage(0, line));
-				
-				Matcher commandMatcher = commandPattern.matcher(line);
-				if (commandMatcher.find()) {
-					//String method = commandMatcher.group(1);
-					String path = commandMatcher.group(2);
-					String[] pathBits = path.split("/");
-					
-					//parse query string
-					Map<String, String> queryMap = new HashMap<String, String>();
-					if (commandMatcher.group(4) != null) {
-						String[] params = commandMatcher.group(4).split("&");  
-						for (String param : params)  
-						{  
-							String[] splat = param.split("=");
-							queryMap.put(splat[0], splat.length>1 ? splat[1] : "");
-						}
-					}
-					
-					if (queryMap.get("counter")!=null) {
-						int newCount = Integer.parseInt(queryMap.get("counter"));
-						if (newCount > requestCounter) {
-							requestCounter = newCount;
-						} else {
-							client.close();
-							return; //older request so ignore it
-						}
-					}
-					
-					if (pathBits.length > 1 && pathBits[1].equals("control")) {
-						//control the motors
-						leftSpeed = Float.parseFloat(queryMap.get("left"));
-						rightSpeed = Float.parseFloat(queryMap.get("right"));
-						
-						if (Math.abs(leftSpeed) < 0.3) leftSpeed = 0;
-						if (Math.abs(rightSpeed) < 0.3) rightSpeed = 0;
-						
-						if (Math.abs(leftSpeed) > 0.8) leftSpeed = leftSpeed > 0 ? 0.8f : -0.8f;
-						if (Math.abs(rightSpeed) > 0.8) rightSpeed = rightSpeed > 0 ? 0.8f : -0.8f;
-						
-						sendResponse("200 OK", path);
-					} else if (pathBits.length > 1 && pathBits[1].equals("sensor")) {
-						//get sensor data
-						imageData = null;
-						
-						camera.setOneShotPreviewCallback(new PreviewCallback() {
-							public void onPreviewFrame(byte[] data, Camera camera) {
-								imageData = data;
-							}
-						});
-						
-						//wait for image data
-					    while(imageData == null) {
-					    	sleep(10);
-					    }
-					    
-					    //Bitmap bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.length);
-					    //Matrix matrix = new Matrix();
-					    //matrix.postRotate(90);
-					    //Bitmap rotatedBMP = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-					    //ByteArrayOutputStream baos=new ByteArrayOutputStream();
-					    //bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-					    
-					    YuvImage yuv = new YuvImage(imageData, ImageFormat.NV21, previewSize.width, previewSize.height, null);
-					    Rect rect = new Rect(0, 0, previewSize.width, previewSize.height);
-					    ByteArrayOutputStream baos=new ByteArrayOutputStream();
-					    yuv.compressToJpeg(rect, 70, baos);
-					    
-					    sendHeaders("200 OK", "image/jpeg", baos.size());
-						outStream.write(baos.toByteArray());
-					} else {
-						//server a file
-						if (path.equals("/") || path.equals("/index.html")) {
-							path = "/index.html";
-							requestCounter = 0;
-						}
-						
-						//determine content type from file extension
-						String ext = path.substring(path.lastIndexOf(".")+1);
-						String mimeType = "text/plain";
-						if (ext.equals("html")) mimeType = "text/html";
-						if (ext.equals("js")) mimeType = "text/javascript";
-						if (ext.equals("ico")) mimeType = "image/x-icon";
-						//if (ext.equals("png")) mimeType = "image/png";
-						
-						//read file into a string
-						AssetManager assetManager = getResources().getAssets();
-						try {
-							BufferedReader fileReader = new BufferedReader(
-									new InputStreamReader(assetManager.open(path.substring(1))));
-							String body = "";
-							String fileLine;
-							while ((fileLine = fileReader.readLine()) != null) body = body.concat(fileLine+"\n");
-							sendResponse("200 OK", body, mimeType);						
-						} catch (FileNotFoundException e) {
-							sendResponse("404 File Not Found", "File not found: "+path);
-						}
-						
-					}
-				} else {
-					sendResponse("400 Bad Request", "Malformed request: "+line);
-				}
-
-				client.close();
-			} catch (Exception e) {
-				Log.e("BillyRobot","Exception", e);
-			}
-			
-		}
-		
-		private void sendResponse(String code, String body, String type) {
-			sendHeaders(code, type, body.length());
-			outStream.print(body);
-		}
-		
-		private void sendResponse(String code, String body) {
-			sendResponse(code, body, "text/plain");
-		}
-		
-		private void sendHeaders(String code, String type, int contentLength) {
-			outStream.println("HTTP/1.1 "+code);
-			outStream.println("Content-Type: "+type);
-			outStream.println("Content-Length: "+contentLength);
-			outStream.println("Access-Control-Allow-Origin: *");
-			outStream.println();
-		}
-		
-	}
-
 	class IOIOThread extends AbstractIOIOActivity.IOIOThread {
 		private DigitalOutput stat;
 		@SuppressWarnings("unused")
@@ -349,7 +344,6 @@ public class BillyRobotActivity extends AbstractIOIOActivity {
 		final int b1 = 9;
 		final int b2 = 8;
 		final int pwmB = 10;
-		
 		
 		@Override
 		protected void setup() throws ConnectionLostException {

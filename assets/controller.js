@@ -1,22 +1,6 @@
 var interval, stopCount = 0, requestCounter = 0, 
 	leftSpeed = 0, rightSpeed = 0;
 			
-function init() {
-	$('#nav a').click(function(e) {
-		e.preventDefault();
-		
-		var type = $(this).closest('li').addClass('active')
-			.siblings().removeClass('active').end()
-			.attr('class').split(' ')[0];
-		$('.panel.'+type).show().siblings('.panel').hide();
-		
-		inits['clean']();
-		inits[type]();
-	}).eq(0).click();
-	
-	initCamera();
-}
-
 var inits = {
 	buttons: function initButtons() {
 		$('.panel.buttons button')
@@ -27,7 +11,7 @@ var inits = {
 		$(window).bind('keydown', keyDown).bind('keyup', stop);
 	},
 	joystick: function() {
-		
+		$('#stickInput').click(startStick);
 	},
 	tilt: function() {
 		window.addEventListener('devicemotion', motionListener, true);
@@ -43,6 +27,27 @@ var inits = {
 	}
 };
 
+init(); //go!
+
+function init() {
+	$('#nav a').click(function(e) {
+		e.preventDefault();
+		
+		var type = $(this).closest('li').addClass('active')
+			.siblings().removeClass('active').end()
+			.attr('class').split(' ')[0];
+		$('.panel.'+type).show().siblings('.panel').hide();
+		
+		inits['clean']();
+		inits[type]();
+	}).eq(0).click();
+	
+	initCamera();
+	
+	if (navigator.platform.indexOf("iPhone") == -1 && navigator.platform.indexOf("iPod") == -1) {
+		$('.panel.tilt p').text('Tilt control only works with iPhones & iPads');
+	}
+}
 
 function buttonPress() {
 	switch ($(this).val()) {
@@ -98,17 +103,48 @@ function initCamera() {
 	});
 }
 
+function startStick(e) {
+	e.stopPropagation();
+	var $container = $(this);
+	var width = $container.width();
+	var height = $container.height();
+	var top = $container.position().top;
+	var left = $container.position().left;
+	
+	$('body').bind('mousemove', function(e) {
+		var x = e.pageX - left;
+		var y = e.pageY - top;
+		if (x<=0 || y<=0 || x>=width || y>=height) {
+			x = width/2;
+			y = height/2;
+		}
+		$container.find('span').css({
+			left: x-5,
+			top: y-5
+		});
+		
+		xyToSpeed(x*2/width-1, 1-y*2/height);
+	}).one('click', function(){
+		$('#stickInput').unbind('mousemove');
+	});
+}
+
 function motionListener(e) {
-	var x = e.accelerationIncludingGravity.x;
-	var y = e.accelerationIncludingGravity.y;
-	var angle = Math.atan2(x, y);
-	var speed = Math.sqrt(x*x+y*y)/10;
+	var x = e.accelerationIncludingGravity.x / 10;
+	var y = e.accelerationIncludingGravity.y / 10;
 	
 	$('#tiltDisplay span').css({
-		left: (x+10)*5+'%',
-		top: 100-(y+10)*5+'%'
+		left: 50+x*50+'%',
+		top: 50-y*50+'%'
 	});
 	
+	xyToSpeed(x, y)
+}
+
+function xyToSpeed(x, y) {
+	var angle = Math.atan2(x, y);
+	var speed = Math.min(1, Math.sqrt(x*x+y*y));
+
 	if (speed < 0.2) speed = 0;
 	if (Math.abs(angle) < 0.3) angle = 0;
 	if (Math.abs(angle) > 2.8) angle = Math.PI;
@@ -116,8 +152,6 @@ function motionListener(e) {
 	if (speed && !leftSpeed && !rightSpeed) {
 		startLoop();
 	}
-	
-	$('#out').text(angle);
 	 
 	leftSpeed = Math.round(speed * angleToSpeed(angle-Math.PI/2) * 100) / 100;
 	rightSpeed = Math.round(speed * angleToSpeed(angle) * 100) / 100;
@@ -137,5 +171,3 @@ function angleToSpeed(angle) {
 	return 1;
 	
 }
-
-init();
